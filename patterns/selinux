@@ -1,0 +1,37 @@
+AUDITTYPE  type=%{WORD:audit_type}
+
+# entries have an audit entry that is unix epoch time and a counter
+# pull this out so it can be be mapped as timestamp with date filter
+AUDITTIMESTAMP msg=audit\(%{NUMBER:audit_epoch}:%{NUMBER:audit_counter}\):
+
+# These are always together
+AUDITTYPETIME %{AUDITTYPE} %{AUDITTIMESTAMP}
+
+# could kv parse the quotedstring msg as well
+AUDITLOGMSG %{GREEDYDATA:audit_msg}
+
+AUDITPID pid=%{NUMBER:audit_pid}
+AUDITUID uid=%{NUMBER:audit_uid}
+AUDITAUID auid=%{NUMBER:audit_auid}
+AUDITSES ses=%{NUMBER:audit_ses}
+
+# AVC entries include the avc... type? and info "avc:  denied  { getattr }"
+# Note the _two_ spaces on either side of 'denied'
+AUDITAVCTYPE %{WORD:audit_avc_type}
+AUDITAVCINFO \{ %{DATA:audit_avc_info} \}
+
+# NOTE: just use kv filter on messages, this is the rest of the entry
+#       gets passed to kv
+AUDITAVCMSG %{GREEDYDATA:audit_avc_msg}
+
+# Note: this hardcodes 'denied' at the moment, but likely needs to be a pattern
+AUDITAVC %{AUDITTYPETIME} avc:  denied  %{AUDITAVCINFO} %{AUDITAVCMSG}
+
+# could be simplified for a match for whatever the valid values after AUDITTIMESTAMP
+#AUDITLOGIN %{AUDITTYPETIME} login %{AUDITPID} %{AUDITUID} old %{AUDITAUID} new %{AUDITAUID} old ses=%{NUMBER:old_ses} new ses=%{NUMBER:new_ses}
+
+AUDIT %{AUDITTYPETIME} %{AUDITLOGMSG}
+
+# example avc denial
+#type=AVC msg=audit(1417371183.002:9798): avc:  denied  { getattr } for  pid=23420 comm="ruby-mri" path="/usr/sbin/ssmtp" dev="dm-0" ino=2097862 scontext=system_u:system_r:rhsmcertd_t:s0 tcontext=system_u:object_r:sendmail_exec_t:s0 tclass=file permissive=1
+
